@@ -22,3 +22,6 @@ Thumbs.db
 
 # SQLite DB (if used locally)
 *.sqlite3
+
+# Data file
+/data/
