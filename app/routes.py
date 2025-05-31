@@ -1,9 +1,9 @@
+from typing import List
 from fastapi import HTTPException, Depends, APIRouter
 from schemas import FeedbackIn, FeedbackOut
 from models import Feedback
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from typing import List
 from sentiment import classify
 
 router = APIRouter(
