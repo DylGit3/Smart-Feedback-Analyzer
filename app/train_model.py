@@ -1,19 +1,18 @@
+from collections import Counter
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
-from collections import Counter
-import os
 
 # --- Load and Preprocessing ---
 
 df = pd.read_csv('data/test.csv', names=['label', 'title', 'text'])
 df.dropna(inplace=True)
-df['label'] = df['label'] - 1
+df['label'] = df['label'].astype(int) - 1
 df['combined_text'] = df['title'] + ' ' + df['text']
 
 texts = df['combined_text'].tolist()
@@ -64,16 +63,18 @@ def collate_batch(batch):
 
 
 class SentimentModel(nn.Module):
-    def __init__(self, vocab_size, embed_dim=64):
+    def __init__(self, vocab_size, embed_dim=64, hidden_dim=32):
         super().__init__()
         self.embedding = nn.Embedding(
             vocab_size, embed_dim, padding_idx=0)  # Dense vector/lookup table
-        self.fc = nn.Linear(embed_dim, 1)
+        self.fc1 = nn.Linear(embed_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
         embedded = self.embedding(x)
         pooled = embedded.mean(dim=1)
-        return torch.sigmoid(self.fc(pooled)).squeeze(1)
+        h = torch.relu(self.fc1(pooled))
+        return self.fc2(h).squeeze(1)
 
 # --- Training ---
 
@@ -82,3 +83,39 @@ X_train, X_val, y_train, y_val = train_test_split(
     texts, labels, test_size=0.1, random_state=40)
 train_loader = DataLoader(FeedbackDataset(
     X_train, y_train), batch_size=64, shuffle=True, collate_fn=collate_batch)
+
+model = SentimentModel(vocab_size=len(word_to_idx))
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.BCEWithLogitsLoss()
+
+for epoch in range(3):
+    total_loss = 0
+    total_samples = 0
+    model.train()
+
+    for batch_idx, (inputs, targets) in enumerate(train_loader):
+        outputs = model(inputs)
+        loss = criterion(outputs, targets.float())
+
+        optimizer.zero_grad()   # 1) clear gradients
+        loss.backward()         # 2) compute new gradients
+        optimizer.step()        # 3) update weights
+
+        # accumulate for average‐loss calculation
+        batch_size = targets.size(0)
+        total_loss += loss.item() * batch_size
+        total_samples += batch_size
+
+        # print every 100 batches so you know it's running
+        if batch_idx % 100 == 0:
+            print(
+                f"Epoch {epoch+1}, batch {batch_idx}, batch loss: {loss.item():.4f}")
+
+    avg_loss = total_loss / total_samples
+    print(f"Epoch {epoch+1} average loss: {avg_loss:.4f}")
+
+# --- Saving Model and Vocab ---
+
+os.makedirs("model", exist_ok=True)
+torch.save(model.state_dict(), "model/sentiment_model.pt")
+torch.save(word_to_idx, "model/word-to-idx.pt")
