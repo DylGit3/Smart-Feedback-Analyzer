@@ -54,10 +54,10 @@ class FeedbackDataset(Dataset):
 
 
 def collate_batch(batch):
-    inputs, labels = zip(*batch)
-    inputs = pad_sequence(inputs, batch_first=True)
-    labels = torch.tensor(labels)
-    return inputs, labels
+    inputs_batch, labels_batch = zip(*batch)
+    inputs_batch = pad_sequence(inputs_batch, batch_first=True)
+    labels_batch = torch.tensor(labels_batch)
+    return inputs_batch, labels_batch
 
 # --- Model Definition ---
 
