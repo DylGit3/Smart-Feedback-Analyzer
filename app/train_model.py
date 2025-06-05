@@ -97,11 +97,10 @@ for epoch in range(3):
         outputs = model(inputs)
         loss = criterion(outputs, targets.float())
 
-        optimizer.zero_grad()   # 1) clear gradients
-        loss.backward()         # 2) compute new gradients
-        optimizer.step()        # 3) update weights
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-        # accumulate for average‐loss calculation
         batch_size = targets.size(0)
         total_loss += loss.item() * batch_size
         total_samples += batch_size
