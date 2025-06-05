@@ -81,8 +81,16 @@ class SentimentModel(nn.Module):
 
 X_train, X_val, y_train, y_val = train_test_split(
     texts, labels, test_size=0.1, random_state=40)
+
 train_loader = DataLoader(FeedbackDataset(
     X_train, y_train), batch_size=64, shuffle=True, collate_fn=collate_batch)
+
+val_loader = DataLoader(
+    FeedbackDataset(X_val, y_val),
+    batch_size=64,
+    shuffle=False,
+    collate_fn=collate_batch
+)
 
 model = SentimentModel(vocab_size=len(word_to_idx))
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -105,13 +113,39 @@ for epoch in range(3):
         total_loss += loss.item() * batch_size
         total_samples += batch_size
 
-        # print every 100 batches so you know it's running
         if batch_idx % 100 == 0:
             print(
                 f"Epoch {epoch+1}, batch {batch_idx}, batch loss: {loss.item():.4f}")
 
     avg_loss = total_loss / total_samples
     print(f"Epoch {epoch+1} average loss: {avg_loss:.4f}")
+
+    # === INSERTED VALIDATION PASS ===
+    model.eval()
+    val_loss = 0
+    val_samples = 0
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for inputs, targets in val_loader:
+            logits = model(inputs)
+            loss = criterion(logits, targets.float())
+
+            bs = targets.size(0)
+            val_loss += loss.item() * bs
+            val_samples += bs
+
+            preds = (torch.sigmoid(logits) >= 0.5).long()
+            correct += (preds == targets).sum().item()
+            total += bs
+
+    avg_val_loss = val_loss / val_samples
+    val_accuracy = correct / total
+    print(
+        f"Epoch {epoch+1} val loss: {avg_val_loss:.4f}, val acc: {val_accuracy:.4f}\n")
+
+    model.train()
 
 # --- Saving Model and Vocab ---
 
